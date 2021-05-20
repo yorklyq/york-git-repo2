@@ -1,0 +1,77 @@
+parameters:
+  - name: vmNames
+    type: string
+  - name: resourceGroup
+    type: string
+    default: ""
+  - name: ServiceConnection
+    type: string
+    default: ""
+  - name: taskAction
+    type: string
+    default: ""
+
+steps:
+  - task: AzureCLI@2
+    inputs:
+      azureSubscription: 'manage-vm-sp'
+      scriptType: 'ps'
+      scriptLocation: 'inlineScript'
+      ${{ if in(parameters.taskAction, 'start','deallocate') }}:
+        inlineScript: |
+          foreach ($vmName in ${{ parameters.vmNames }})
+                {
+                  write-host "##[group]Beginning of verbose output - ${{ parameters.taskAction }} VMname:$vmName"
+                  write-host "##[section] >>>>**** vmname is $vmName and resource group is ${{ parameters.resourceGroup }} *******"
+                  az vm ${{ parameters.taskAction }} --name $vmName --resource-group ${{ parameters.resourceGroup }}
+                  
+                  if ($LastExitCode -ne 0) {
+                      Write-Error ">>>>**** Error ${{ parameters.taskAction }} VM:$vmName"
+                      Write-Host "##[debug] VM $vmName ${{ parameters.taskAction }} task failed--- please investigate !!!..."
+                      return
+                  }else {
+                      az vm list -d -o table --query "[?name=='$vmName']"
+                      Write-Host "##[debug] VM $vmName ${{ parameters.taskAction }} task succeeded..."
+                  }
+                  write-host "##[endgroup]"
+
+                }
+      ${{ if eq(parameters.taskAction, 'restart') }}:
+        inlineScript: |
+          foreach ($vmName in ${{ parameters.vmNames }})
+                {
+                  write-host "##[group]Beginning of verbose output - ${{ parameters.taskAction }} VMname:$vmName"
+                  write-host "##[section] >>>>**** vmname is $vmName and resource group is ${{ parameters.resourceGroup }} *******"
+                  write-host "##[section] >>>>**** stopping VM $vmName  *******"
+                  az vm stop --name $vmName --resource-group ${{ parameters.resourceGroup }}
+                  $LastExitCode
+                  if ($LastExitCode -ne 0) {
+                      Write-Error ">>>>**** Error ${{ parameters.taskAction }} VM:$vmName"
+                      Write-Host "##[debug] VM $vmName ${{ parameters.taskAction }} task failed--- please investigate !!!..."
+                      return
+                  }else {
+                      az vm list -d -o table --query "[?name=='$vmName']"
+                  }
+                  write-host "##[section] >>>>**** restarting VM $vmName  *******"
+                  az vm start --name $vmName --resource-group ${{ parameters.resourceGroup }}
+                  if ($LastExitCode -ne 0) {
+                      Write-Error ">>>>**** Error ${{ parameters.taskAction }} VM:$vmName"
+                      Write-Host "##[debug] VM $vmName ${{ parameters.taskAction }} task failed--- please investigate !!!..."
+                      return
+                  }else {
+                      az vm list -d -o table --query "[?name=='$vmName']"
+                      Write-Host "##[debug] VM $vmName ${{ parameters.taskAction }} task succeeded..."
+                  }
+                  write-host "##[endgroup]"
+                }
+      ${{ if eq(parameters.taskAction, 'status') }}:
+        inlineScript: |
+          foreach ($vmName in ${{ parameters.vmNames }})
+                {
+                  write-host "##[group]Beginning of verbose output - ${{ parameters.taskAction }} VMname:$vmName"
+                  write-host "##[section] >>>>**** vmname is $vmName and resource group is ${{ parameters.resourceGroup }} *******"
+                  write-host "##[section] >>>>**** check VM $vmName status *******"
+                  az vm list -d -o table --query "[?name=='$vmName']"
+                  write-host "##[endgroup]"
+                }
+      failOnStandardError: false
