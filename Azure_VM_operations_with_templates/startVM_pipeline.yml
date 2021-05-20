@@ -1,0 +1,42 @@
+parameters:
+- name: vmNames
+  displayName: "Virtual Machine Name"
+  type: string
+  default: '"VM-DEV1", "VM-DEV2"'
+  values:
+    - '"VM-DEV1"'
+    - '"VM-DEV2"'
+    - '"VM-DEV1", "VM-DEV2"' # add multiple Comma-separated VMs
+
+trigger: 
+  none
+  
+variables:
+- name: resourceGroup
+  value: "myResourceGroup-DEV"
+- name: ServiceConnection
+  value: "manage-vm-sp"
+- name: taskAction
+  value: "start"
+
+schedules:
+- cron: "0 11 * * Mon-Fri"
+  displayName: Mon-Sun 07:00 AM (UTC - 4) Toronto weekdays daily start up
+  branches:
+    include:
+    - master
+  always: true
+
+pool:
+  vmImage: vs2017-win2016
+stages:
+  - stage: stage_start_vm
+    jobs:
+    - job: job_start_vm
+      steps:
+      - template: ./templates/managevm.yml
+        parameters:
+          vmNames: ${{ parameters.vmNames }}
+          resourceGroup: ${{ variables.resourceGroup }}
+          ServiceConnection: ${{ variables.ServiceConnection }}
+          taskAction: ${{ variables.taskAction }}
